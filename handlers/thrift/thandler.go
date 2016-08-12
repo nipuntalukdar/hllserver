@@ -22,8 +22,11 @@ func init() {
 	registerTypes()
 }
 
-func NewThriftHandler() (*ThriftHandler, error) {
-	return &ThriftHandler{hlc: hll.NewHllContainer(1024)}, nil
+func NewThriftHandler(hlc *hll.HllContainer) (*ThriftHandler, error) {
+	if hlc == nil {
+		panic("Container is nil")
+	}
+	return &ThriftHandler{hlc: hlc}, nil
 }
 
 func (th *ThriftHandler) AddLog(add *hllthrift.AddLogCmd) (hllthrift.Status, error) {
