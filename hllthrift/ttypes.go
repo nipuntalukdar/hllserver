@@ -197,9 +197,11 @@ func (p *AddLogCmd) String() string {
 // Attributes:
 //  - Key
 //  - Data
+//  - Expiry
 type UpdateLogCmd struct {
-	Key  string `thrift:"Key,1" json:"Key"`
-	Data []byte `thrift:"Data,2" json:"Data"`
+	Key    string `thrift:"Key,1" json:"Key"`
+	Data   []byte `thrift:"Data,2" json:"Data"`
+	Expiry int64  `thrift:"Expiry,3" json:"Expiry"`
 }
 
 func NewUpdateLogCmd() *UpdateLogCmd {
@@ -212,6 +214,10 @@ func (p *UpdateLogCmd) GetKey() string {
 
 func (p *UpdateLogCmd) GetData() []byte {
 	return p.Data
+}
+
+func (p *UpdateLogCmd) GetExpiry() int64 {
+	return p.Expiry
 }
 func (p *UpdateLogCmd) Read(iprot thrift.TProtocol) error {
 	if _, err := iprot.ReadStructBegin(); err != nil {
@@ -233,6 +239,10 @@ func (p *UpdateLogCmd) Read(iprot thrift.TProtocol) error {
 			}
 		case 2:
 			if err := p.readField2(iprot); err != nil {
+				return err
+			}
+		case 3:
+			if err := p.readField3(iprot); err != nil {
 				return err
 			}
 		default:
@@ -268,6 +278,15 @@ func (p *UpdateLogCmd) readField2(iprot thrift.TProtocol) error {
 	return nil
 }
 
+func (p *UpdateLogCmd) readField3(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadI64(); err != nil {
+		return thrift.PrependError("error reading field 3: ", err)
+	} else {
+		p.Expiry = v
+	}
+	return nil
+}
+
 func (p *UpdateLogCmd) Write(oprot thrift.TProtocol) error {
 	if err := oprot.WriteStructBegin("UpdateLogCmd"); err != nil {
 		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
@@ -276,6 +295,9 @@ func (p *UpdateLogCmd) Write(oprot thrift.TProtocol) error {
 		return err
 	}
 	if err := p.writeField2(oprot); err != nil {
+		return err
+	}
+	if err := p.writeField3(oprot); err != nil {
 		return err
 	}
 	if err := oprot.WriteFieldStop(); err != nil {
@@ -313,6 +335,19 @@ func (p *UpdateLogCmd) writeField2(oprot thrift.TProtocol) (err error) {
 	return err
 }
 
+func (p *UpdateLogCmd) writeField3(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("Expiry", thrift.I64, 3); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 3:Expiry: ", p), err)
+	}
+	if err := oprot.WriteI64(int64(p.Expiry)); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T.Expiry (3) field write error: ", p), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 3:Expiry: ", p), err)
+	}
+	return err
+}
+
 func (p *UpdateLogCmd) String() string {
 	if p == nil {
 		return "<nil>"
@@ -323,9 +358,11 @@ func (p *UpdateLogCmd) String() string {
 // Attributes:
 //  - Key
 //  - Data
+//  - Expiry
 type UpdateLogMValCmd struct {
-	Key  string   `thrift:"Key,1" json:"Key"`
-	Data [][]byte `thrift:"Data,2" json:"Data"`
+	Key    string   `thrift:"Key,1" json:"Key"`
+	Data   [][]byte `thrift:"Data,2" json:"Data"`
+	Expiry int64    `thrift:"Expiry,3" json:"Expiry"`
 }
 
 func NewUpdateLogMValCmd() *UpdateLogMValCmd {
@@ -338,6 +375,10 @@ func (p *UpdateLogMValCmd) GetKey() string {
 
 func (p *UpdateLogMValCmd) GetData() [][]byte {
 	return p.Data
+}
+
+func (p *UpdateLogMValCmd) GetExpiry() int64 {
+	return p.Expiry
 }
 func (p *UpdateLogMValCmd) Read(iprot thrift.TProtocol) error {
 	if _, err := iprot.ReadStructBegin(); err != nil {
@@ -359,6 +400,10 @@ func (p *UpdateLogMValCmd) Read(iprot thrift.TProtocol) error {
 			}
 		case 2:
 			if err := p.readField2(iprot); err != nil {
+				return err
+			}
+		case 3:
+			if err := p.readField3(iprot); err != nil {
 				return err
 			}
 		default:
@@ -407,6 +452,15 @@ func (p *UpdateLogMValCmd) readField2(iprot thrift.TProtocol) error {
 	return nil
 }
 
+func (p *UpdateLogMValCmd) readField3(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadI64(); err != nil {
+		return thrift.PrependError("error reading field 3: ", err)
+	} else {
+		p.Expiry = v
+	}
+	return nil
+}
+
 func (p *UpdateLogMValCmd) Write(oprot thrift.TProtocol) error {
 	if err := oprot.WriteStructBegin("UpdateLogMValCmd"); err != nil {
 		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
@@ -415,6 +469,9 @@ func (p *UpdateLogMValCmd) Write(oprot thrift.TProtocol) error {
 		return err
 	}
 	if err := p.writeField2(oprot); err != nil {
+		return err
+	}
+	if err := p.writeField3(oprot); err != nil {
 		return err
 	}
 	if err := oprot.WriteFieldStop(); err != nil {
@@ -456,6 +513,19 @@ func (p *UpdateLogMValCmd) writeField2(oprot thrift.TProtocol) (err error) {
 	}
 	if err := oprot.WriteFieldEnd(); err != nil {
 		return thrift.PrependError(fmt.Sprintf("%T write field end error 2:Data: ", p), err)
+	}
+	return err
+}
+
+func (p *UpdateLogMValCmd) writeField3(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("Expiry", thrift.I64, 3); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 3:Expiry: ", p), err)
+	}
+	if err := oprot.WriteI64(int64(p.Expiry)); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T.Expiry (3) field write error: ", p), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 3:Expiry: ", p), err)
 	}
 	return err
 }

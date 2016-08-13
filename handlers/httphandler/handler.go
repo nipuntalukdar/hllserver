@@ -3,7 +3,6 @@ package httphandler
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"github.com/nipuntalukdar/hllserver/hll"
 	"io"
 	"net/http"
@@ -105,7 +104,7 @@ func (hl *HttpAddLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	}
 	data := req.Form
 	expiry, ok := data["expiry"]
-	expiry_time := int64(0)
+	expiry_time := uint64(0)
 	var err error
 	if ok {
 		if len(expiry) > 1 {
@@ -113,15 +112,14 @@ func (hl *HttpAddLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 			return
 		}
 		if len(expiry) != 0 {
-			expiry_time, err = strconv.ParseInt(expiry[0], 10, 64)
+			expiry_time, err = strconv.ParseUint(expiry[0], 10, 64)
 			if err != nil {
 				failureStatus(w, http.StatusBadRequest, "Invalid values for expiry")
 				return
 			}
 		}
 	}
-	fmt.Printf("Expiry time %d\n", expiry_time)
-	hl.hlc.AddLog(logkey, nil)
+	hl.hlc.AddLog(logkey, nil, expiry_time)
 	successStatus(w)
 }
 
@@ -187,7 +185,17 @@ func (hl *HttpUpdateLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 		}
 		bindata[i] = bindt
 	}
-	hl.hlc.AddMLog(logkey, bindata)
+
+	expiry_time := uint64(0)
+	keyi, ok = decoded["expiry"]
+	if ok {
+		expiry_time, err = strconv.ParseUint(keyi.(string), 10, 64)
+		if err != nil {
+			failureStatus(w, http.StatusBadRequest, "Invailid value for expiry")
+			return
+		}
+	}
+	hl.hlc.AddMLog(logkey, bindata, expiry_time)
 	successStatus(w)
 }
 

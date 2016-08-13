@@ -15,11 +15,13 @@ struct AddLogCmd {
 struct UpdateLogCmd {
     1: string Key,
     2: binary Data,
+    3: i64 Expiry = 0
 }
 
 struct UpdateLogMValCmd {
     1: string Key,
     2: list<binary> Data,
+    3: i64 Expiry = 0
 }
 
 struct UpdateExpiryCmd {

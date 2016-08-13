@@ -30,7 +30,7 @@ func NewThriftHandler(hlc *hll.HllContainer) (*ThriftHandler, error) {
 }
 
 func (th *ThriftHandler) AddLog(add *hllthrift.AddLogCmd) (hllthrift.Status, error) {
-	th.hlc.AddLog(add.Key, nil)
+	th.hlc.AddLog(add.Key, nil, uint64(add.Expiry))
 	return hllthrift.Status_SUCCESS, nil
 }
 
@@ -39,12 +39,12 @@ func (th *ThriftHandler) UpdateExpiry(upde *hllthrift.UpdateExpiryCmd) (hllthrif
 }
 
 func (th *ThriftHandler) Update(updl *hllthrift.UpdateLogCmd) (hllthrift.Status, error) {
-	th.hlc.AddLog(updl.Key, updl.Data)
+	th.hlc.AddLog(updl.Key, updl.Data, uint64(updl.Expiry))
 	return hllthrift.Status_SUCCESS, nil
 }
 
 func (th *ThriftHandler) UpdateM(updlm *hllthrift.UpdateLogMValCmd) (hllthrift.Status, error) {
-	th.hlc.AddMLog(updlm.Key, updlm.Data)
+	th.hlc.AddMLog(updlm.Key, updlm.Data, uint64(updlm.Expiry))
 	return hllthrift.Status_SUCCESS, nil
 }
 
