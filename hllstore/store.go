@@ -8,7 +8,8 @@ type KeyExpiry struct {
 type HllStore interface {
 	Update(key string, expiry uint64, value []byte) bool
 	Delete(key string)
-	GetAll() []*KeyExpiry
+	ProcessAll(fn func(key []byte, exiry uint64, value []byte) bool) error
 	Get(key string) ([]byte, uint64, error)
 	GetExpiry(key string) (uint64, error)
+	FlushAndStop()
 }
