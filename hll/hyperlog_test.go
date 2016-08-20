@@ -6,8 +6,8 @@ import (
 )
 
 func TestHyperLog(t *testing.T) {
-	hpl := newHyperLog()
-	hpl2 := newHyperLog()
+	hpl := newHyperLog("1", 0)
+	hpl2 := newHyperLog("2", 0)
 	var i uint32 = 0
 	mp := make(map[uint32]uint32)
 	rand.Seed(42)
@@ -30,7 +30,7 @@ func TestHyperLog(t *testing.T) {
 }
 
 func TestHyperLogSerialize(t *testing.T) {
-	hpl := newHyperLog()
+	hpl := newHyperLog("1", 0)
 	i := 0
 	for i < 10 {
 		i++
@@ -42,7 +42,7 @@ func TestHyperLogSerialize(t *testing.T) {
 		t.Fatal("Serialization failed %d", len(bytes))
 	}
 	t.Logf("The returned array size %d", len(bytes))
-	hpl2 := newHyperLog()
+	hpl2 := newHyperLog("2", 0)
 	i = 0
 	rand.Seed(42)
 	for i < 100000 {

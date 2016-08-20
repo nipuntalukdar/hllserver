@@ -4,13 +4,18 @@ import (
 	"github.com/nipuntalukdar/bitset"
 	"math"
 	"sync"
+	"sync/atomic"
 )
 
 type hyperlog struct {
-	slot           []byte
+	key            string
+	slot           []uint32
 	numslot        uint32
 	numnonzeroslot uint32
 	lock           *sync.RWMutex
+	updated        int32
+	deleted        uint32
+	expiry         uint64
 }
 
 const (
@@ -24,12 +29,13 @@ const (
 	cMP2     float64 = tWOPO32F / 30.0
 )
 
-func newHyperLog() *hyperlog {
-	slot := make([]byte, sLOT)
-	return &hyperlog{slot: slot, numslot: sLOT, numnonzeroslot: 0, lock: &sync.RWMutex{}}
+func newHyperLog(logkey string, expiry uint64) *hyperlog {
+	slot := make([]uint32, sLOT)
+	return &hyperlog{key: logkey, slot: slot, numslot: sLOT, numnonzeroslot: 0,
+		lock: &sync.RWMutex{}, updated: 0, expiry: expiry}
 }
 
-func (hpl *hyperlog) addhash(val uint32) {
+func (hpl *hyperlog) addhash(val uint32) (int32, bool) {
 	idx := byte(val >> 24)
 	var andwth uint32 = 0x00800000
 	var leadzs uint32 = 0
@@ -47,14 +53,38 @@ func (hpl *hyperlog) addhash(val uint32) {
 	}
 	// value at index set to leading zeros count + 1
 	leadzs += 1
-	hpl.lock.Lock()
-	defer hpl.lock.Unlock()
-	if hpl.slot[idx] < byte(leadzs) {
-		if hpl.slot[idx] == 0 {
-			hpl.numnonzeroslot += 1
-		}
-		hpl.slot[idx] = byte(leadzs)
+	curval := atomic.LoadUint32(&hpl.slot[idx])
+	if curval >= leadzs {
+		return 0, false
 	}
+
+	updated := false
+	hpl.lock.RLock()
+	defer hpl.lock.RUnlock()
+	for curval < leadzs {
+		if atomic.CompareAndSwapUint32(&hpl.slot[idx], curval, leadzs) {
+			if curval == 0 {
+				atomic.AddUint32(&hpl.numnonzeroslot, 1)
+			}
+			updated = true
+			break
+		} else {
+			curval = atomic.LoadUint32(&hpl.slot[idx])
+		}
+	}
+	if updated {
+		return atomic.AddInt32(&hpl.updated, 1), true
+	} else {
+		return 0, false
+	}
+}
+
+func (hpl *hyperlog) processed(delta int32) int32 {
+	return atomic.AddInt32(&hpl.updated, delta)
+}
+
+func (hpl *hyperlog) getUpdCount() int32 {
+	return atomic.LoadInt32(&hpl.updated)
 }
 
 func (hpl *hyperlog) count_cardinality() uint64 {
@@ -84,8 +114,8 @@ func (hpl *hyperlog) count_cardinality() uint64 {
 }
 
 func (hpl *hyperlog) serialize() []byte {
-	hpl.lock.RLock()
-	defer hpl.lock.RUnlock()
+	hpl.lock.Lock()
+	defer hpl.lock.Unlock()
 
 	// if number of set index <= 80, then return the array as
 	// array of set indices, followed by the array of values set at those
@@ -99,7 +129,7 @@ func (hpl *hyperlog) serialize() []byte {
 		for i < sLOT {
 			if hpl.slot[i] != 0 {
 				ret[curset] = byte(i)
-				ret[curset+hpl.numnonzeroslot] = hpl.slot[i]
+				ret[curset+hpl.numnonzeroslot] = byte(hpl.slot[i])
 				curset++
 			}
 			i++
@@ -130,12 +160,12 @@ func deserialize(data []byte) (bool, *hyperlog) {
 			return false, nil
 		}
 	}
-	hpl := newHyperLog()
+	hpl := newHyperLog("", 0)
 	if data[0] != 0xff {
 		actual_size := uint32(data[0])
 		start := uint32(1)
 		for start <= actual_size {
-			hpl.slot[data[start]] = data[start+actual_size]
+			hpl.slot[data[start]] = uint32(data[start+actual_size])
 			start++
 		}
 	} else {
@@ -148,7 +178,7 @@ func deserialize(data []byte) (bool, *hyperlog) {
 			if err != nil {
 				return false, nil
 			}
-			hpl.slot[cur_indx] = byte(val)
+			hpl.slot[cur_indx] = val
 			cur_indx++
 			start += 5
 		}
