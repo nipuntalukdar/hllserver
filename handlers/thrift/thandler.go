@@ -49,8 +49,12 @@ func (th *ThriftHandler) UpdateM(updlm *hllthrift.UpdateLogMValCmd) (hllthrift.S
 }
 
 func (th *ThriftHandler) DelLog(key string) (hllthrift.Status, error) {
-	th.hlc.DelLog(key)
-	return hllthrift.Status_SUCCESS, nil
+	ret := th.hlc.DelLog(key)
+	if ret {
+		return hllthrift.Status_SUCCESS, nil
+	} else {
+		return hllthrift.Status_FAILURE, nil
+	}
 }
 
 func (th *ThriftHandler) GetCardinality(key string) (*hllthrift.CardinalityResponse, error) {

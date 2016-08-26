@@ -6,6 +6,24 @@ import (
 	"testing"
 )
 
+type KeyValProc struct {
+	t         *testing.T
+	printeach int
+	tmp       int
+}
+
+func (proc *KeyValProc) Process(key string, expiry uint64, value []byte) error {
+	if proc.tmp == 0 {
+		proc.t.Logf("Key processing key:%s, expiry: %d, value %s", key, expiry, value)
+	}
+	proc.tmp++
+	if proc.tmp == proc.printeach {
+		proc.tmp = 0
+	}
+
+	return nil
+}
+
 func TestBoltStore(t *testing.T) {
 	bs := NewBoltStore("/tmp/abc", "mybolt.db")
 	i := 0
@@ -17,16 +35,8 @@ func TestBoltStore(t *testing.T) {
 	bs.FlushAndStop()
 	bs = NewBoltStore("/tmp/abc", "mybolt.db")
 	i = 0
-	bs.ProcessAll(func(key []byte, expiry uint64, value []byte) bool {
-		if i&255 == 255 {
-			t.Logf("Key %s, value: %s, expiry: %d", key, value, expiry)
-		}
-		i++
-		return true
-	})
-	if i != 20000 {
-		t.Fatal("Db store test failed expected 20000, got %d", i)
-	}
+	kp := &KeyValProc{t, 20, 0}
+	bs.ProcessAll(kp)
 
 	data, exp, err := bs.Get("mykey999")
 	if err != nil {

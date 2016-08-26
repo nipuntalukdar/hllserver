@@ -16,6 +16,7 @@ type hyperlog struct {
 	updated        int32
 	deleted        uint32
 	expiry         uint64
+	delwait        sync.WaitGroup
 }
 
 const (
@@ -146,7 +147,7 @@ func (hpl *hyperlog) serialize() []byte {
 	return bs.GetBytesUnsafe()
 }
 
-func deserialize(data []byte) (bool, *hyperlog) {
+func deserialize(key string, expiry uint64, data []byte) (bool, *hyperlog) {
 	datalen := uint32(len(data))
 	if datalen <= 1 || datalen&1 == 0 {
 		return false, nil
@@ -160,7 +161,7 @@ func deserialize(data []byte) (bool, *hyperlog) {
 			return false, nil
 		}
 	}
-	hpl := newHyperLog("", 0)
+	hpl := newHyperLog(key, expiry)
 	if data[0] != 0xff {
 		actual_size := uint32(data[0])
 		start := uint32(1)
@@ -168,6 +169,7 @@ func deserialize(data []byte) (bool, *hyperlog) {
 			hpl.slot[data[start]] = uint32(data[start+actual_size])
 			start++
 		}
+		hpl.numnonzeroslot = actual_size
 	} else {
 		// Data was in a bitset
 		bs := bitset.NewBitsetFromArray(data[1:])
@@ -179,6 +181,9 @@ func deserialize(data []byte) (bool, *hyperlog) {
 				return false, nil
 			}
 			hpl.slot[cur_indx] = val
+			if val > 0 {
+				hpl.numnonzeroslot += 1
+			}
 			cur_indx++
 			start += 5
 		}

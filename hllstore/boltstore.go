@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/boltdb/bolt"
 	"hash/crc32"
+	"sync"
 	"time"
 )
 
@@ -33,6 +34,7 @@ type BoltStore struct {
 	bucketn []string
 	buckets []*bolt.Bucket
 	works   chan *mutation
+	flush   chan *sync.WaitGroup
 }
 
 func NewBoltStore(dbdir string, dbname string) *BoltStore {
@@ -65,7 +67,8 @@ func NewBoltStore(dbdir string, dbname string) *BoltStore {
 		panic(err)
 	}
 	works := make(chan *mutation, 10240)
-	bs := &BoltStore{dbdir, dbname, db, bucketn, buckets, works}
+	flushchan := make(chan *sync.WaitGroup, 10)
+	bs := &BoltStore{dbdir, dbname, db, bucketn, buckets, works, flushchan}
 	go bs.writeToDb()
 	return bs
 }
@@ -86,8 +89,7 @@ func (bs *BoltStore) Delete(key string) {
 	bs.works <- &mutation{DEL, uint16(crc32.ChecksumIEEE([]byte(key)) & 7), []byte(key), nil}
 }
 
-func (bs *BoltStore) processBucket(bkt *bolt.Bucket, fn func(key []byte, expiry uint64,
-	value []byte) bool) (error, bool) {
+func (bs *BoltStore) processBucket(bkt *bolt.Bucket, processor KeyValProcessor) (error, bool) {
 	cursor := bkt.Cursor()
 	var expiry uint64
 	ret := true
@@ -101,22 +103,22 @@ func (bs *BoltStore) processBucket(bkt *bolt.Bucket, fn func(key []byte, expiry 
 		if err != nil {
 			return err, true
 		}
-		ret = fn(k, expiry, v[8:])
-		if !ret {
-			return err, ret
+		err = processor.Process(string(k), expiry, v[8:])
+		if err != nil {
+			return err, false
 		}
 	}
 	return err, ret
 }
 
-func (bs *BoltStore) ProcessAll(fn func(key []byte, exiry uint64, value []byte) bool) error {
+func (bs *BoltStore) ProcessAll(processor KeyValProcessor) error {
 	var err error
 	var ret bool
 	for _, bktn := range bs.bucketn {
 		tx, err := bs.db.Begin(false)
 		bkt := tx.Bucket([]byte(bktn))
 		if bkt != nil {
-			err, ret = bs.processBucket(bkt, fn)
+			err, ret = bs.processBucket(bkt, processor)
 		}
 		tx.Rollback()
 		if err != nil || !ret {
@@ -235,8 +237,28 @@ func (bs *BoltStore) writeToDb() {
 				commited = true
 				added = 0
 			}
+		case wg := <-bs.flush:
+			if added > 0 {
+				if commited {
+					tx, err = bs.initTransactions()
+					if err != nil {
+						panic(err)
+					}
+				}
+				tx.Commit()
+				commited = true
+				added = 0
+			}
+			wg.Done()
 		}
 	}
+}
+
+func (bs *BoltStore) Flush() {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	bs.flush <- &wg
+	wg.Wait()
 }
 
 func (bs *BoltStore) FlushAndStop() {

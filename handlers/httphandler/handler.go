@@ -131,8 +131,12 @@ func (hl *HttpDelLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	if logkey == "" {
 		return
 	}
-	hl.hlc.DelLog(logkey)
-	successStatus(w)
+	ok := hl.hlc.DelLog(logkey)
+	if !ok {
+		failureStatus(w, http.StatusInternalServerError, "Error in deleting logkey")
+	} else {
+		successStatus(w)
+	}
 }
 
 func (hl *HttpUpdateLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {

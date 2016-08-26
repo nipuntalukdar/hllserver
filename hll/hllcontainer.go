@@ -2,6 +2,7 @@ package hll
 
 import (
 	"container/list"
+	"errors"
 	"github.com/nipuntalukdar/hllserver/hllogs"
 	"github.com/nipuntalukdar/hllserver/hllstore"
 	"github.com/nipuntalukdar/hllserver/hutil"
@@ -36,15 +37,16 @@ type updLogs struct {
 }
 
 type HllContainer struct {
-	hllmaps  []*hllMap
-	expirym  map[uint64]map[string]*expm
-	exmutex  *sync.RWMutex
-	hslot    uint32
-	ticker   *time.Ticker
-	shutdown chan bool
-	store    hllstore.HllStore
-	updates  []*updLogs
-	updchan  chan *hyperlog
+	hllmaps      []*hllMap
+	expirym      map[uint64]map[string]*expm
+	exmutex      *sync.RWMutex
+	hslot        uint32
+	ticker       *time.Ticker
+	shutdown     chan bool
+	store        hllstore.HllStore
+	updates      []*updLogs
+	updchan      chan *hyperlog
+	delete_first []string
 }
 
 func newExpm(part uint32, log *hyperlog) *expm {
@@ -90,7 +92,7 @@ func NewHllContainer(slots uint32, store hllstore.HllStore) *HllContainer {
 	hlc := &HllContainer{hllmaps: hllmaps, expirym: make(map[uint64]map[string]*expm),
 		exmutex: exmutex, hslot: slots - 1, ticker: ticker,
 		shutdown: make(chan bool), store: store, updates: updls,
-		updchan: make(chan *hyperlog, 20480)}
+		updchan: make(chan *hyperlog, 20480), delete_first: []string{}}
 
 	i := uint32(0)
 	for i < slots {
@@ -98,6 +100,8 @@ func NewHllContainer(slots uint32, store hllstore.HllStore) *HllContainer {
 		i++
 	}
 	if store != nil {
+		// First restore from store
+		hlc.restore()
 		i = 0
 		for i < 8 {
 			go hlc.savechanges(hlc.updates[i])
@@ -106,6 +110,13 @@ func NewHllContainer(slots uint32, store hllstore.HllStore) *HllContainer {
 	}
 	go hlc.storeUpdates()
 	go hlc.cleanup()
+	if store != nil && len(hlc.delete_first) > 0 {
+		for _, key := range hlc.delete_first {
+			hlc.store.Delete(key)
+		}
+		hlc.delete_first = nil
+		hlc.store.Flush()
+	}
 	hllogs.Log.Info("HLLContainer initialized")
 	return hlc
 }
@@ -182,18 +193,29 @@ func (hm *hllMap) getLog(key string) *hyperlog {
 	return hlog
 }
 
-func (hc *HllContainer) DelLog(key string) {
+func (hc *HllContainer) DelLog(key string) bool {
 	slot := murmur3_32([]byte(key), sEED) & hc.hslot
 	hm := hc.hllmaps[slot]
 	if hm.getLog(key) != nil {
 		hm.mutex.Lock()
-		defer hm.mutex.Unlock()
 		hlog, ok := hm.logm[key]
 		if ok {
-			atomic.StoreUint32(&hlog.deleted, 1)
 			delete(hm.logm, key)
 		}
+		hm.mutex.Unlock()
+		if ok {
+			hlog.delwait.Add(1)
+			atomic.StoreUint32(&hlog.deleted, 1)
+			newval := atomic.AddInt32(&hlog.updated, 1)
+			if newval == 1 {
+				hc.enqueueStoreUpd(slot, hlog)
+			}
+			// Wait for delete actually applies to store
+			hlog.delwait.Wait()
+			return true
+		}
 	}
+	return true
 }
 
 func (hc *HllContainer) GetCardinality(key string) uint64 {
@@ -303,12 +325,19 @@ func (hc *HllContainer) enqueueStoreUpd(slot uint32, hlog *hyperlog) {
 
 func (hc *HllContainer) updateStore(hlog *hyperlog) {
 	key := hlog.key
-	data := hlog.serialize()
-	expiry := hlog.expiry
-	updcount := hlog.getUpdCount()
-	hc.store.Update(key, expiry, data)
-	hllogs.Log.Infof("Updating key %s", key)
-	if hlog.processed(-updcount) > 0 {
+	deleted := atomic.LoadUint32(&hlog.deleted)
+	var updcount int32
+	if deleted > 0 {
+		hc.store.Delete(key)
+		hc.store.Flush()
+		hlog.delwait.Done()
+	} else {
+		updcount = hlog.getUpdCount()
+		data := hlog.serialize()
+		expiry := hlog.expiry
+		hc.store.Update(key, expiry, data)
+	}
+	if deleted != 1 && hlog.processed(-updcount) > 0 {
 		slot := murmur3_32([]byte(hlog.key), sEED) & hc.hslot
 		hc.enqueueStoreUpd(slot, hlog)
 	}
@@ -318,12 +347,37 @@ func (hc *HllContainer) storeUpdates() {
 	for {
 		select {
 		case hlog := <-hc.updchan:
-			deleted := atomic.LoadUint32(&hlog.deleted)
-			if deleted != 1 {
-				hc.updateStore(hlog)
-			}
+			hc.updateStore(hlog)
 		case _ = <-hc.shutdown:
 			break
 		}
 	}
+}
+
+func (hc *HllContainer) Process(key string, expiry uint64, data []byte) error {
+	hllogs.Log.Infof("Trying to restore %s", key)
+	now := uint64(time.Now().Unix())
+	if expiry > 0 && expiry <= now {
+		hllogs.Log.Infof("Key %s, has expiry %d, less than current time %d, deleting...",
+			key, expiry, now)
+		hc.delete_first = append(hc.delete_first, key)
+		return nil
+	}
+	ok, hlog := deserialize(key, expiry, data)
+	if !ok {
+		return errors.New("Error in decoding hyperlog")
+	}
+	slot := murmur3_32([]byte(key), sEED) & hc.hslot
+	hm := hc.hllmaps[slot]
+	hllogs.Log.Infof("Restored log for key:%s", key)
+	hm.logm[key] = hlog
+	return nil
+}
+
+func (hc *HllContainer) restore() {
+	if hc.store == nil {
+		return
+	}
+	hllogs.Log.Info("Trying to restore")
+	hc.store.ProcessAll(hc)
 }
