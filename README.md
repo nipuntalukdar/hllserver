@@ -23,7 +23,7 @@ Installation
 You need to have golang >= 1.5 installed on your machine as I haven't uploaded the prebuilt binary
 anywhere. Use the below command to install hyperloglog server:
 
-**$ go install github.com/nipuntalukdar/hllserver/hllserverd**
+**$ go get github.com/nipuntalukdar/hllserver/hllserverd**
 
 Running hllserver processs
 --------------------------
