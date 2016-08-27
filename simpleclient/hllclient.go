@@ -32,7 +32,7 @@ func main() {
 		panic(err)
 	}
 	client := hllthrift.NewHllServiceClientFactory(trans, protocolFactory)
-	status, err := client.AddLog(&hllthrift.AddLogCmd{*logkey, 0})
+	status, err := client.AddLog(&hllthrift.AddLogCmd{*logkey, 20})
 	if err != nil {
 		panic(err)
 	}

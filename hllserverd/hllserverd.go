@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/nipuntalukdar/hllserver/handlers/httphandler"
 	"github.com/nipuntalukdar/hllserver/handlers/thrift"
@@ -43,13 +42,13 @@ func main() {
 	hlc := hll.NewHllContainer(1024, store)
 	thandler, err := thandler.NewThriftHandler(hlc)
 	if err != nil {
-		panic("Could not initialize the thrift handler")
+		logger.Fatal("Could not initialize the thrift handler")
 	}
 
 	hllprocessor := hllthrift.NewHllServiceProcessor(thandler)
 	ssock, err := thrift.NewTServerSocket(*thrift_port)
 	if err != nil {
-		panic("Couldn't create server socket for")
+		logger.Fatal("Couldn't create server socket for")
 	}
 
 	// Start the servers
@@ -60,7 +59,7 @@ func main() {
 		defer wg.Done()
 		server := thrift.NewTSimpleServer4(hllprocessor, ssock,
 			thrift.NewTBufferedTransportFactory(2048000), thrift.NewTBinaryProtocolFactoryDefault())
-		fmt.Println("Starting the thrift server")
+		logger.Info("Starting the thrift server")
 		server.Serve()
 	}()
 
@@ -75,12 +74,14 @@ func main() {
 		hdellogh := httphandler.NewHttpDelLogHandler(hlc)
 		updllogh := httphandler.NewHttpUpdateLogHandler(hlc)
 		cardinalh := httphandler.NewHttpGetCardinalityHandler(hlc)
+		updexpiryh := httphandler.NewHttpUpdateExpiryHandler(hlc)
 		http.Handle("/addlogkey", haddlogh)
 		http.Handle("/dellogkey", hdellogh)
 		http.Handle("/updatelog", updllogh)
 		http.Handle("/cardinality", cardinalh)
+		http.Handle("/updexpiry", updexpiryh)
 
-		fmt.Println("Http listener starting")
+		logger.Info("Http listener starting")
 		server.ListenAndServe()
 	}()
 

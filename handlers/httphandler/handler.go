@@ -33,6 +33,11 @@ type HttpGetCardinalityHandler struct {
 	allowed []string
 }
 
+type HttpUpdateExpiryHandler struct {
+	hlc     *hll.HllContainer
+	allowed []string
+}
+
 func NewHttpAddLogHandler(hlc *hll.HllContainer) *HttpAddLogHandler {
 	return &HttpAddLogHandler{hlc: hlc, allowed: []string{http.MethodGet}}
 }
@@ -47,6 +52,10 @@ func NewHttpUpdateLogHandler(hlc *hll.HllContainer) *HttpUpdateLogHandler {
 
 func NewHttpGetCardinalityHandler(hlc *hll.HllContainer) *HttpGetCardinalityHandler {
 	return &HttpGetCardinalityHandler{hlc: hlc, allowed: []string{http.MethodGet}}
+}
+
+func NewHttpUpdateExpiryHandler(hlc *hll.HllContainer) *HttpUpdateExpiryHandler {
+	return &HttpUpdateExpiryHandler{hlc: hlc, allowed: []string{http.MethodGet}}
 }
 
 func checkMethod(req *http.Request, w http.ResponseWriter, allowedMethods []string) bool {
@@ -92,6 +101,27 @@ func checkLogKey(req *http.Request, w http.ResponseWriter) string {
 		return ""
 	}
 	return logkeys[0]
+}
+
+func checkExpiryVal(req *http.Request, w http.ResponseWriter) (uint64, bool) {
+	req.ParseForm()
+	data := req.Form
+	expiry, ok := data["expiry"]
+	if !ok {
+		failureStatus(w, http.StatusBadRequest, "expiry key missing")
+		return 0, false
+	}
+	if len(expiry) != 1 || len(expiry[0]) == 0 {
+		failureStatus(w, http.StatusBadRequest,
+			"expiry must have one and only one non-empty value")
+		return 0, false
+	}
+	expiry_time, err := strconv.ParseUint(expiry[0], 10, 64)
+	if err != nil {
+		failureStatus(w, http.StatusBadRequest, "Invalid values for expiry")
+		return 0, false
+	}
+	return expiry_time, true
 }
 
 func (hl *HttpAddLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -216,4 +246,23 @@ func (hl *HttpGetCardinalityHandler) ServeHTTP(w http.ResponseWriter, req *http.
 	jdata, _ := json.Marshal(jsonm)
 	w.Header().Set("Content-type", "application/json")
 	w.Write(jdata)
+}
+
+func (hl *HttpUpdateExpiryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if !checkMethod(req, w, hl.allowed) {
+		return
+	}
+	logkey := checkLogKey(req, w)
+	if logkey == "" {
+		return
+	}
+	expiry, ok := checkExpiryVal(req, w)
+	if !ok {
+		return
+	}
+	if !hl.hlc.UpdateExpiry(logkey, expiry) {
+		failureStatus(w, http.StatusInternalServerError, "Failed to update expiry")
+	} else {
+		successStatus(w)
+	}
 }

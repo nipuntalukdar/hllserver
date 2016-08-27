@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/boltdb/bolt"
+	"github.com/nipuntalukdar/hllserver/hllogs"
 	"hash/crc32"
 	"sync"
 	"time"
@@ -41,7 +42,7 @@ func NewBoltStore(dbdir string, dbname string) *BoltStore {
 	dbpath := fmt.Sprintf("%s/%s", dbdir, dbname)
 	db, err := bolt.Open(dbpath, 0644, &bolt.Options{Timeout: 10 * time.Second})
 	if err != nil {
-		panic(err)
+		hllogs.Log.Fatalf("Fatal error %s", err)
 	}
 	i := 0
 	bucketn := make([]string, 8)
@@ -52,23 +53,24 @@ func NewBoltStore(dbdir string, dbname string) *BoltStore {
 	buckets := make([]*bolt.Bucket, 8)
 	t, err := db.Begin(true)
 	if err != nil {
-		panic(err)
+		hllogs.Log.Fatalf("Fatal error %s", err)
 	}
 	i = 0
 	for i < 8 {
 		_, err := t.CreateBucketIfNotExists([]byte(bucketn[i]))
 		if err != nil {
-			panic(err)
+			hllogs.Log.Fatalf("Fatal error %s", err)
 		}
 		i++
 	}
 	err = t.Commit()
 	if err != nil {
-		panic(err)
+		hllogs.Log.Fatalf("Fatal error %s", err)
 	}
 	works := make(chan *mutation, 10240)
 	flushchan := make(chan *sync.WaitGroup, 10)
 	bs := &BoltStore{dbdir, dbname, db, bucketn, buckets, works, flushchan}
+	hllogs.Log.Infof("Initaialized hyperlog store %s", dbpath)
 	go bs.writeToDb()
 	return bs
 }
@@ -205,12 +207,6 @@ func (bs *BoltStore) writeToDb() {
 		select {
 		case _ = <-timer.C:
 			if added > 0 {
-				if commited {
-					tx, err = bs.initTransactions()
-					if err != nil {
-						panic(err)
-					}
-				}
 				tx.Commit()
 				commited = true
 				added = 0
@@ -220,7 +216,7 @@ func (bs *BoltStore) writeToDb() {
 			if commited {
 				tx, err = bs.initTransactions()
 				if err != nil {
-					panic(err)
+					hllogs.Log.Fatalf("Fatal error %s", err)
 				}
 				commited = false
 			}
@@ -230,7 +226,7 @@ func (bs *BoltStore) writeToDb() {
 				err = bs.dbDelete(tx, mut.key, uint32(mut.bktn))
 			}
 			if err != nil {
-				panic(err)
+				hllogs.Log.Fatalf("Fatal error %s", err)
 			}
 			if added > 10000 {
 				tx.Commit()
@@ -239,12 +235,6 @@ func (bs *BoltStore) writeToDb() {
 			}
 		case wg := <-bs.flush:
 			if added > 0 {
-				if commited {
-					tx, err = bs.initTransactions()
-					if err != nil {
-						panic(err)
-					}
-				}
 				tx.Commit()
 				commited = true
 				added = 0

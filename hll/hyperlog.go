@@ -17,6 +17,7 @@ type hyperlog struct {
 	deleted        uint32
 	expiry         uint64
 	delwait        sync.WaitGroup
+	delwaiter      uint32
 }
 
 const (

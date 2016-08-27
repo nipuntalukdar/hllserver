@@ -35,7 +35,11 @@ func (th *ThriftHandler) AddLog(add *hllthrift.AddLogCmd) (hllthrift.Status, err
 }
 
 func (th *ThriftHandler) UpdateExpiry(upde *hllthrift.UpdateExpiryCmd) (hllthrift.Status, error) {
-	return hllthrift.Status_SUCCESS, nil
+	if th.hlc.UpdateExpiry(upde.Key, uint64(upde.Expiry)) {
+		return hllthrift.Status_SUCCESS, nil
+	} else {
+		return hllthrift.Status_FAILURE, nil
+	}
 }
 
 func (th *ThriftHandler) Update(updl *hllthrift.UpdateLogCmd) (hllthrift.Status, error) {

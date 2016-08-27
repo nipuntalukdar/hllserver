@@ -25,7 +25,7 @@ func (proc *KeyValProc) Process(key string, expiry uint64, value []byte) error {
 }
 
 func TestBoltStore(t *testing.T) {
-	bs := NewBoltStore("/tmp/abc", "mybolt.db")
+	bs := NewBoltStore("/tmp", "mybolt.db")
 	i := 0
 	value := []byte("some value for test")
 	for i < 20000 {
@@ -33,7 +33,7 @@ func TestBoltStore(t *testing.T) {
 		i++
 	}
 	bs.FlushAndStop()
-	bs = NewBoltStore("/tmp/abc", "mybolt.db")
+	bs = NewBoltStore("/tmp", "mybolt.db")
 	i = 0
 	kp := &KeyValProc{t, 20, 0}
 	bs.ProcessAll(kp)
