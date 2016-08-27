@@ -1,0 +1,15 @@
+{
+	"ImportPath": "github.com/nipuntalukdar/hllserver/simpleclient",
+	"GoVersion": "go1.7",
+	"GodepVersion": "v74",
+	"Deps": [
+		{
+			"ImportPath": "git.apache.org/thrift.git/lib/go/thrift",
+			"Rev": "4b7dbe3cf224351b84bb0b707cb661d8aa95e45c"
+		},
+		{
+			"ImportPath": "github.com/nipuntalukdar/hllserver/hllthrift",
+			"Rev": "7b9eccbe3f2836425c268205e7549b5356a2cc9f"
+		}
+	]
+}

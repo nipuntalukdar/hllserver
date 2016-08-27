@@ -1,0 +1,29 @@
+{
+	"ImportPath": "github.com/nipuntalukdar/hllserver/hllstore",
+	"GoVersion": "go1.7",
+	"GodepVersion": "v74",
+	"Deps": [
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.10.0",
+			"Rev": "4b6ea7319e214d98c938f12692336f7ca9348d6b"
+		},
+		{
+			"ImportPath": "github.com/boltdb/bolt",
+			"Comment": "v1.2.0-21-gd974993",
+			"Rev": "d97499360d1ecebc492ea66c7447ea948f417620"
+		},
+		{
+			"ImportPath": "github.com/nipuntalukdar/hllserver/hllogs",
+			"Rev": "7b9eccbe3f2836425c268205e7549b5356a2cc9f"
+		},
+		{
+			"ImportPath": "github.com/nipuntalukdar/hllserver/hutil",
+			"Rev": "7b9eccbe3f2836425c268205e7549b5356a2cc9f"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "b44883b474ffefa37335017174e397412b633a4f"
+		}
+	]
+}
