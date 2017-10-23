@@ -3,8 +3,8 @@ package hllogs
 import (
 	"bufio"
 	"fmt"
-	"github.com/Sirupsen/logrus"
 	"github.com/nipuntalukdar/hllserver/hutil"
+	"github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 	"sort"
