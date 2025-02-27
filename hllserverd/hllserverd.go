@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"git.apache.org/thrift.git/lib/go/thrift"
+	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/nipuntalukdar/hllserver/handlers/httphandler"
 	"github.com/nipuntalukdar/hllserver/handlers/thrift"
 	"github.com/nipuntalukdar/hllserver/hll"
