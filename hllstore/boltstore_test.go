@@ -2,8 +2,11 @@ package hllstore
 
 import (
 	"fmt"
+	"github.com/nipuntalukdar/hllserver/hllogs"
+	"os"
 	"reflect"
 	"testing"
+	"time"
 )
 
 type KeyValProc struct {
@@ -22,6 +25,12 @@ func (proc *KeyValProc) Process(key string, expiry uint64, value []byte) error {
 	}
 
 	return nil
+}
+
+func TestMain(m *testing.M) {
+	hllogs.InitLogger(10, 1024, "a.log", "INFO")
+	m.Run()
+	time.Sleep(2 * time.Second)
 }
 
 func TestBoltStore(t *testing.T) {
@@ -57,4 +66,7 @@ func TestBoltStore(t *testing.T) {
 		t.Fatal("Incorrect expiry value")
 	}
 	t.Logf("Key: mykey1111, expiry: %d", exp)
+	bs.FlushAndStop()
+	os.Remove("/tmp/mybolt.db")
+
 }
