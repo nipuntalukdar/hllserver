@@ -39,7 +39,7 @@ func TestHyperLogSerialize(t *testing.T) {
 	}
 	bytes := hpl.serialize()
 	if len(bytes) != 21 {
-		t.Fatal("Serialization failed %d", len(bytes))
+		t.Fatalf("Serialization failed %d", len(bytes))
 	}
 	t.Logf("The returned array size %d", len(bytes))
 	hpl2 := newHyperLog("2", 0)
