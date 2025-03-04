@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"github.com/apache/thrift/lib/go/thrift"
@@ -10,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 )
+
+var ctx = context.Background()
 
 func copybuf(line []byte) []byte {
 	ret := make([]byte, len(line))
@@ -34,7 +37,7 @@ func get_client(addr string) (*hllthrift.HllServiceClient, *thrift.TBufferedTran
 func addLog(chn chan *hllthrift.UpdateLogMValCmd, cl *hllthrift.HllServiceClient, counter *int32) {
 	for {
 		upd := <-chn
-		status, err := cl.UpdateM(upd)
+		status, err := cl.UpdateM(ctx, upd)
 		if status != hllthrift.Status_SUCCESS || err != nil {
 			panic("Failed")
 		}
@@ -43,7 +46,7 @@ func addLog(chn chan *hllthrift.UpdateLogMValCmd, cl *hllthrift.HllServiceClient
 }
 
 func main() {
-	ipAddr := flag.String("server", "127.0.0.1:9999", "server_addr:port")
+	ipAddr := flag.String("server", "127.0.0.1:55124", "server_addr:port")
 	filepath := flag.String("file", "a.txt", "file containing a word in every line")
 	logkey := flag.String("logkey", "key1", "log key name")
 	flag.Parse()
@@ -63,7 +66,7 @@ func main() {
 		i++
 	}
 
-	status, err := clients[0].AddLog(&hllthrift.AddLogCmd{*logkey, 0})
+	status, err := clients[0].AddLog(ctx, &hllthrift.AddLogCmd{*logkey, 0})
 	if err != nil || status != hllthrift.Status_SUCCESS {
 		panic("Failed")
 	}
@@ -117,7 +120,7 @@ func main() {
 		time.Sleep(1000 * time.Millisecond)
 		fmt.Printf("Val %d\n", val)
 	}
-	cr, err := clients[0].GetCardinality(*logkey)
+	cr, err := clients[0].GetCardinality(ctx, *logkey)
 	if err != nil || cr.Status != hllthrift.Status_SUCCESS {
 		panic("Couldn't get cardinality")
 	}

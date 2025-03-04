@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"github.com/apache/thrift/lib/go/thrift"
@@ -16,7 +17,7 @@ func copybuf(line []byte) []byte {
 }
 
 func main() {
-	ipAddr := flag.String("server", "127.0.0.1:9999", "server_addr:port")
+	ipAddr := flag.String("server", "127.0.0.1:55124", "server_addr:port")
 	filepath := flag.String("file", "a.txt", "file containing a word in every line")
 	logkey := flag.String("logkey", "key1", "log key name")
 	flag.Parse()
@@ -31,8 +32,9 @@ func main() {
 	if err = transport.Open(); err != nil {
 		panic(err)
 	}
+	ctx := context.Background()
 	client := hllthrift.NewHllServiceClientFactory(trans, protocolFactory)
-	status, err := client.AddLog(&hllthrift.AddLogCmd{*logkey, 20})
+	status, err := client.AddLog(ctx, &hllthrift.AddLogCmd{*logkey, 20})
 	if err != nil {
 		panic(err)
 	}
@@ -58,7 +60,7 @@ func main() {
 		if i&8191 == 8191 {
 			j += i
 			i = 0
-			status, err = client.UpdateM(updm)
+			status, err = client.UpdateM(ctx, updm)
 			if err != nil || status != hllthrift.Status_SUCCESS {
 				panic("Failed")
 			}
@@ -68,14 +70,14 @@ func main() {
 	}
 	if i > 0 {
 		updm.Data = updm.Data[:i]
-		status, err = client.UpdateM(updm)
+		status, err = client.UpdateM(ctx, updm)
 		j += i
 		if err != nil || status != hllthrift.Status_SUCCESS {
 			panic("Failed")
 		}
 	}
 	fmt.Printf("Sent %d\n", j)
-	cr, err := client.GetCardinality(*logkey)
+	cr, err := client.GetCardinality(ctx, *logkey)
 	if err != nil || cr.Status != hllthrift.Status_SUCCESS {
 		panic("Couldn't get cardinality")
 	}
