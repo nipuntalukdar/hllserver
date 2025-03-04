@@ -23,7 +23,7 @@ You need to have golang >= 1.5 installed on your machine as I haven't uploaded t
 anywhere. Use the below command to install hyperloglog server:
 
 ```bash
- $ go install github.com/nipuntalukdar/hllserver/hllserverd
+go install github.com/nipuntalukdar/hllserver/hllserverd@latest
 
 ```
 
@@ -31,7 +31,10 @@ anywhere. Use the below command to install hyperloglog server:
 
 Running the server:
 
-**$hllserverd -db /tmp -persist**
+```bash
+hllserverd -db /tmp -persist
+
+```
 
 Detailed usage is shown below:
 
